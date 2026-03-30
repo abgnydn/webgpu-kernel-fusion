@@ -14,8 +14,8 @@ The advantage is specific to **sequential workloads** and grows on discrete NVID
 
 ## Links
 
-- **Run the benchmarks yourself:** [swarm-bench.vercel.app](https://swarm-bench.vercel.app)
-- **Why this matters (plain language):** [swarm-bench.vercel.app/why](https://swarm-bench.vercel.app/why)
+- **Run the benchmarks yourself:** [gpubench.dev](https://gpubench.dev)
+- **Why this matters (plain language):** [gpubench.dev/why](https://gpubench.dev/why)
 - **Paper (Markdown):** [PAPER.md](PAPER.md)
 - **Paper (LaTeX):** [paper.tex](paper.tex)
 - **arXiv:** coming soon
