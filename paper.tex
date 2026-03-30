@@ -1,0 +1,315 @@
+\documentclass[sigconf,nonacm]{acmart}
+
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{url}
+\usepackage{adjustbox}
+
+\settopmatter{printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+\begin{document}
+
+\title{Single-Kernel Fusion for Sequential Fitness Evaluation via WebGPU Compute Shaders}
+
+\author{Ahmet Baris Gunaydin}
+\affiliation{%
+  \institution{Independent Researcher}
+}
+\email{abgunaydin94@gmail.com}
+
+\begin{abstract}
+Fusing sequential fitness evaluations into single GPU compute shader dispatches eliminates the per-step kernel launch overhead that dominates framework-based GPU computation. On a 1,500-timestep financial simulation, a WebGPU compute shader achieves 46.2~gen/s --- 7.2$\times$ over JAX GPU with \texttt{lax.scan}+\texttt{vmap} (6.43~gen/s on Tesla T4) and 94$\times$ over PyTorch CUDA. On Acrobot-v1 (500 timesteps, RK4), the gap narrows to 1.29$\times$ over JAX GPU, revealing that the fusion advantage scales with episode length $L$. JAX GPU dominates on embarrassingly parallel Rastrigin (1,164 vs 170~gen/s), confirming the advantage is specific to sequential workloads. A native Metal baseline via wgpu quantifies Chrome's browser overhead at 1.92$\times$. We show \texttt{torch.compile} fails at $L \geq 1{,}000$ and that WebGPU dominates CMA-ES across all tested dimensionality regimes. The insight --- hand-fused compute shaders outperform even XLA-compiled loop fusion on long sequential fitness functions --- applies beyond WebGPU, and WebGPU makes such fusion accessible with zero installation.
+\end{abstract}
+
+\keywords{WebGPU, compute shaders, kernel fusion, neuroevolution, GPU computing, evolutionary computation, browser-based computing}
+
+\maketitle
+
+%% ═══════════════════════════════════════════════════════════
+\section{Introduction}
+
+GPU-accelerated evaluation of population-based algorithms requires dispatching the same computation across thousands of individuals per generation. When the fitness function is embarrassingly parallel (e.g., Rastrigin), modern ML frameworks like PyTorch and JAX efficiently batch these evaluations. However, many real-world fitness functions contain \textbf{sequential dependencies} --- reinforcement learning rollouts, financial simulations, control system evaluations --- where each timestep depends on the previous state.
+
+For these sequential workloads, framework-based approaches face a fundamental bottleneck: \textbf{per-step kernel dispatch overhead}. PyTorch's eager execution model requires a CPU$\to$GPU round-trip for each of the $L$ timesteps within each generation, totaling ${\sim}15 \times L$ kernel launches per generation. For $L = 1{,}500$, this produces ${\sim}22{,}500$ GPU operations per generation with CPU$\leftrightarrow$GPU synchronization between each.
+
+We present a solution: \textbf{single-kernel fusion}, where the entire multi-step evaluation (all $L$ timesteps for all $N$ individuals) executes as a single GPU compute shader dispatch. The kernel maintains per-individual state in GPU memory and iterates through timesteps entirely on-device, eliminating all intermediate host synchronization.
+
+This approach is implemented in WGSL (WebGPU Shading Language), providing: (1)~zero installation --- the compute shader runs in any WebGPU-capable browser, and (2)~cross-vendor portability --- the same shader executes on Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel D3D12 backends.
+
+\textbf{Contributions:}
+\begin{itemize}
+  \item \textbf{C1: Kernel fusion for sequential fitness functions.} Fusing a 1,500-timestep financial simulation yields 159$\times$ over PyTorch MPS, 94$\times$ over PyTorch CUDA, and 7.2$\times$ over JAX GPU with \texttt{lax.scan}+\texttt{vmap}. Acrobot-v1 confirms with 223$\times$ over CUDA.
+  \item \textbf{C2: Zero-install GPU compute via WebGPU.} The complete engine (${\sim}350$ lines of WGSL) runs on any WebGPU-capable browser.
+  \item \textbf{C3: Empirical characterization} of throughput scaling, numerical precision, browser sandbox overhead (native Metal baseline), NVIDIA CUDA comparison, and JAX GPU comparison.
+\end{itemize}
+
+%% ═══════════════════════════════════════════════════════════
+\section{Related Work}
+
+\textbf{GPU-based evolutionary computation.} Langdon~\cite{langdon2010} surveys GPU implementations of GP in CUDA. DEAP~\cite{fortin2012} provides a Python EA framework. EvoJAX~\cite{tang2022} achieves hardware-accelerated neuroevolution via JAX on TPU/GPU. EvoGP~\cite{wu2025} and GSGP-CUDA~\cite{trujillo2022} provide CUDA-based GP frameworks. Luong et al.~\cite{luong2010} demonstrated GPU-based island models. All require CUDA/TPU infrastructure.
+
+\textbf{WebGPU for computation.} WGPY~\cite{hidaka2025} provides a NumPy-like array library via WebGPU. Sengupta et al.~\cite{sengupta2025} benchmark WebGL vs WebGPU for browser-based EC but benchmark individual operations rather than full evolutionary loops.
+
+\textbf{Browser-based EC.} Duda \& Dlubacz~\cite{duda2013b} demonstrated browser EC with JavaScript on CPU; they also explored WebGL acceleration~\cite{duda2013a}. Merelo-Guervos and Garcia-Sanchez~\cite{merelo2015} modeled distributed browser EC systems.
+
+\textbf{CMA-ES.} Hansen \& Ostermeier~\cite{hansen2001} provide the foundational work. We show throughput-driven brute force can dominate CMA-ES under fixed wall-clock budgets.
+
+%% ═══════════════════════════════════════════════════════════
+\section{System Architecture}
+
+\subsection{GPU-Native Evolution Engine}
+
+The evolutionary loop runs within two WGSL compute shaders: \texttt{nn\_core.wgsl} (shared RNN forward pass, 246 parameters) and \texttt{swarm\_shader.wgsl} (evaluate and evolve entry points). Genome data resides entirely in GPU VRAM using a ping-pong double-buffer pattern. The only CPU$\to$GPU transfer per generation is a 16-byte uniform buffer.
+
+\subsection{Sequential Workload: Financial Domain}
+
+Each individual is evaluated over $L = 1{,}500$ timesteps of historical cryptocurrency price data (16 assets, hourly candles, ${\sim}62$ days). The simulation models leveraged portfolio management with continuous allocation, asymmetric fees, liquidity impact, and maintenance margin liquidation. Each timestep depends on the previous portfolio state.
+
+\subsection{Experimental Methodology}
+
+WebGPU throughput: automated Puppeteer benchmarks ($N = 10$ runs, 20s warmup). Python baselines: $N = 10$ runs, mean $\pm$ std. CMA-ES~\cite{hansen2001}: default population, 30s budget, $N = 30$. Hardware: Apple M2 Pro (Chrome 123, macOS 14) and Tesla T4 (CUDA 12.8, Google Colab).
+
+%% ═══════════════════════════════════════════════════════════
+\section{Results}
+
+\subsection{Embarrassingly Parallel Workload (Rastrigin)}
+
+\begin{table}[h]
+\caption{Rastrigin Benchmark (POP=4,096, DIM=2,000)}
+\label{tab:rastrigin}
+\adjustbox{max width=\columnwidth}{\small
+\begin{tabular}{lrrr}
+\toprule
+System & gen/s & vs NumPy & $N$ \\
+\midrule
+Python/NumPy (CPU) & 3.9 $\pm$ 0.3 & --- & 10 \\
+JAX jit (CPU) & 20.6 $\pm$ 0.5 & 5.3$\times$ & 10 \\
+PyTorch (MPS, M2 Pro) & 160.5 $\pm$ 3.6 & 41$\times$ & 10 \\
+\textbf{WebGPU (Chrome, M2 Pro)} & \textbf{170.3 $\pm$ 8.4} & \textbf{44$\times$} & 10 \\
+wgpu-native (Metal, M2 Pro) & 326.5 $\pm$ 0.3 & 84$\times$ & 10 \\
+PyTorch (CUDA, Tesla T4) & 311.1 $\pm$ 0.8 & 80$\times$ & 10 \\
+JAX jit+vmap (CUDA, T4) & 1,163.9 $\pm$ 168.2 & 298$\times$ & 10 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\textbf{JAX GPU dominates} at 1,164~gen/s --- 6.8$\times$ faster than WebGPU. This is expected: XLA compilation on NVIDIA hardware represents the ceiling for parallel workloads. WebGPU achieves 1.06$\times$ parity with PyTorch MPS.
+
+\textbf{Native Metal baseline.} The identical WGSL shader via wgpu-native (Rust) achieves 326.5~gen/s --- \textbf{1.92$\times$ faster than WebGPU in Chrome}, quantifying browser overhead at 48\%. Notably, PyTorch MPS (160.5) is slower than WebGPU (170.3) despite being native.
+
+\subsection{Sequential Workload: Financial Simulation}
+
+\begin{table}[h]
+\caption{Financial Simulation (POP=10,000, 246 params, 1,500 timesteps)}
+\label{tab:financial}
+\adjustbox{max width=\columnwidth}{\small
+\begin{tabular}{lrrrr}
+\toprule
+System & gen/s & vs NumPy & vs MPS & vs CUDA \\
+\midrule
+Python/NumPy (CPU) & 0.056 & --- & --- & --- \\
+JAX jit+lax.scan (CPU) & 0.157 & 2.8$\times$ & --- & --- \\
+PyTorch (MPS) & 0.29 & 5.2$\times$ & --- & --- \\
+PyTorch (CUDA, T4) & 0.49 & 8.8$\times$ & 1.7$\times$ & --- \\
+JAX lax.scan+vmap (T4) & 6.43 & 115$\times$ & 22$\times$ & --- \\
+\textbf{WebGPU (Chrome)} & \textbf{46.2 $\pm$ 1.0} & \textbf{825$\times$} & \textbf{159$\times$} & \textbf{94$\times$} \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+JAX with \texttt{lax.scan}+\texttt{vmap} on T4 achieves 6.43~gen/s --- 13$\times$ over PyTorch CUDA, confirming XLA loop fusion helps. However, \textbf{WebGPU still achieves 7.2$\times$ over JAX GPU}. The advantage hierarchy: hand-fused shaders (46.2) $>$ XLA loop fusion (6.43) $>$ per-step dispatch (0.49) $>$ CPU fusion (0.157) $>$ CPU eager (0.056).
+
+\subsection{Sequential Workload: Acrobot-v1}
+
+\begin{table}[h]
+\caption{Acrobot-v1 (POP=4,096, 163 params, 500 steps, RK4)}
+\label{tab:acrobot}
+\adjustbox{max width=\columnwidth}{\small
+\begin{tabular}{lrrrr}
+\toprule
+System & gen/s & vs MPS & vs CUDA & $N$ \\
+\midrule
+PyTorch (CUDA, T4) & 0.61 $\pm$ 0.03 & --- & --- & 10 \\
+PyTorch (MPS, M2 Pro) & 2.52 $\pm$ 0.04 & --- & 4.1$\times$ & 10 \\
+WebGPU unfused (M2 Pro) & 62.3 $\pm$ 0.1 & 24.7$\times$ & 102$\times$ & 10 \\
+JAX lax.scan+vmap (T4) & 105.1 $\pm$ 1.0 & 41.7$\times$ & 172$\times$ & 10 \\
+\textbf{WebGPU fused (M2 Pro)} & \textbf{135.9 $\pm$ 4.0} & \textbf{54$\times$} & \textbf{223$\times$} & 10 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\textbf{JAX GPU nearly closes the gap at $L=500$.} JAX achieves 105.1~gen/s --- only 1.29$\times$ slower than WebGPU. Combined with the financial result (7.2$\times$ gap at $L=1{,}500$), this reveals that \textbf{the fusion advantage scales with episode length $L$}.
+
+\textbf{Ablation.} Unfused WebGPU (500 separate dispatches) achieves 62.3~gen/s --- already 102$\times$ over PyTorch CUDA. Fusion adds 2.18$\times$. JAX's fusion (105.1) falls between unfused (62.3) and fused (135.9), confirming XLA achieves partial but not complete fusion.
+
+\subsection{torch.compile Scaling Failure}
+
+\begin{table}[h]
+\caption{\texttt{torch.compile} scaling (POP=10,000)}
+\label{tab:compile}
+\adjustbox{max width=\columnwidth}{\small
+\begin{tabular}{lrrrr}
+\toprule
+Timesteps & Eager & Compiled & Compile time & Speedup \\
+\midrule
+10 & 0.067s & 0.002s & 1.8s & 30.7$\times$ \\
+100 & 0.024s & 0.015s & 4.7s & 1.5$\times$ \\
+500 & 0.158s & 0.081s & 25.5s & 2.0$\times$ \\
+1,000 & 0.227s & \textbf{RecursionError} & --- & --- \\
+5,000 & 3.4s & \textbf{OOM killed} & $>$30 min & --- \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{CMA-ES Comparison}
+
+\begin{table}[h]
+\caption{WebGPU vs CMA-ES (30s budget, $N = 30$). Rastrigin values (lower = better, optimum = 0).}
+\label{tab:cmaes}
+\adjustbox{max width=\columnwidth}{\small
+\begin{tabular}{llrrrr}
+\toprule
+System & DIM & Fitness & gen/s & Gens & $N$ \\
+\midrule
+\textbf{WebGPU} & \textbf{100} & \textbf{0.0 $\pm$ 0.0} & \textbf{16,257} & \textbf{487,750} & 30 \\
+CMA-ES (default) & 100 & 272 $\pm$ 39 & 524 & 1,609 & 30 \\
+\textbf{WebGPU} & \textbf{500} & \textbf{0.0 $\pm$ 0.0} & \textbf{16,109} & \textbf{483,298} & 30 \\
+CMA-ES (default) & 500 & 3,804 $\pm$ 1,181 & 88 & 2,636 & 30 \\
+\textbf{WebGPU} & \textbf{2,000} & \textbf{${\sim}$15,039} & \textbf{11,335} & \textbf{${\sim}$340,000} & 30 \\
+CMA-ES (default) & 2,000 & 33,843 $\pm$ 198 & 12.4 & 374 & 30 \\
+CMA-ES (POP=4,096) & 2,000 & 35,159 $\pm$ 122 & 0.22 & 7 & 30 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+WebGPU achieves the global optimum at DIM$\leq$500. CMA-ES with POP=4,096 manages only 7 generations in 30s --- its $O(n^2 \times \text{pop})$ covariance update makes large-population operation non-viable.
+
+\subsection{Numerical Precision (f32 vs f64)}
+
+Maximum absolute error in NN outputs: $1.97 \times 10^{-7}$. Fitness rankings perfectly preserved: Spearman $\rho = 1.000$ across 10,000 genomes.
+
+\subsection{Scaling Characterization}
+
+\begin{table}[h]
+\caption{Population Scaling (Rastrigin, DIM=2,000)}
+\label{tab:popscale}
+\begin{tabular}{rrr}
+\toprule
+Population & gen/s & VRAM (MB) \\
+\midrule
+512 & 12,948 & 7.8 \\
+1,024 & 12,791 & 15.6 \\
+2,048 & 12,842 & 31.3 \\
+4,096 & 12,685 & 62.5 \\
+8,192 & 12,714 & 125.1 \\
+16,384 & 12,741 & 250.1 \\
+32,768 & 12,702 & 500.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Throughput flat from 512 to 32,768 ($<$2.1\% variation). All five benchmark functions (Sphere, Rastrigin, Ackley, Schwefel, Griewank) within 8\%. Genome scaling (DIM 100--4,000) shows $<$2\% variation.
+
+\subsection{GPU Utilization}
+
+GPU utilization reaches 79.7\% $\pm$ 1.5\% during evolution with no thermal throttling (30.7\textdegree C constant, CV$<$5\% over 60s).
+
+\subsection{Multi-Tab GPU Contention}
+
+With 8 concurrent tabs, total throughput reaches 6.4$\times$ with 80\% per-tab efficiency.
+
+\subsection{MountainCar-v0}
+
+\begin{table}[h]
+\caption{MountainCar-v0 (POP=4,096, 51 params, 200 timesteps)}
+\label{tab:mountaincar}
+\begin{tabular}{lrrr}
+\toprule
+System & gen/s & vs MPS & $N$ \\
+\midrule
+PyTorch (MPS, M2 Pro) & 18.7 $\pm$ 0.6 & --- & 10 \\
+\textbf{WebGPU (Chrome)} & \textbf{1,258.8 $\pm$ 11.4} & \textbf{67$\times$} & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Third standard Gym environment. The 67$\times$ speedup at $L=200$ is consistent with the pattern.
+
+\subsection{CartPole-v1 Validation}
+
+CartPole-v1 solved in 76 $\pm$ 46 ms ($N = 30$, 97\% solve rate). \textbf{Caveat:} this validates random search at scale. EvoJAX~\cite{tang2022} reports solve times on order of seconds on V100/TPU.
+
+%% ═══════════════════════════════════════════════════════════
+\section{Limitations and Future Work}
+
+\begin{itemize}
+  \item \textbf{NVIDIA tested on Tesla T4 only.} A100/H100 testing would characterize whether the advantage persists at the high end.
+  \item \textbf{JAX GPU tested on T4 only.} On TPU or A100, JAX's XLA compiler may further close the gap.
+  \item \textbf{Browser overhead quantified but not decomposed.} The 1.92$\times$ gap includes process isolation, IPC, and Dawn translation.
+  \item \textbf{Two hardware platforms.} AMD and Intel Arc testing would strengthen generalizability.
+\end{itemize}
+
+%% ═══════════════════════════════════════════════════════════
+\section{Reproducibility}
+
+Browser: Chrome 120+. OS: macOS 14+, Linux (Colab). GPU: Apple Metal (M2 Pro), NVIDIA CUDA (Tesla T4). Code: \url{https://github.com/abgnydn/swarm-paper-1}.
+
+%% ═══════════════════════════════════════════════════════════
+\section{Conclusion}
+
+Hand-fused compute shaders outperform all tested alternatives on sequential fitness functions, including JAX's XLA loop fusion --- the strongest competitor. On the 1,500-timestep financial simulation, WebGPU achieves 7.2$\times$ over JAX GPU (46.2 vs 6.43~gen/s) and 94$\times$ over PyTorch CUDA. The advantage scales with $L$: at $L=500$ (Acrobot), JAX nearly closes the gap (1.29$\times$); at $L=1{,}500$ the gap is substantial (7.2$\times$). This reveals a clear hierarchy: hand-fused shaders $>$ XLA loop fusion $>$ per-step framework dispatch.
+
+On parallel workloads (Rastrigin), JAX GPU dominates at 1,164~gen/s --- 6.8$\times$ faster than WebGPU --- confirming the advantage is specific to sequential dependency chains. A native Metal baseline quantifies Chrome's browser overhead at 1.92$\times$. WebGPU makes kernel fusion accessible with zero installation across Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel DirectX backends.
+
+%% ═══════════════════════════════════════════════════════════
+\bibliographystyle{ACM-Reference-Format}
+\begin{thebibliography}{14}
+
+\bibitem{langdon2010}
+W.B. Langdon, ``Large scale bioinformatics data mining with parallel genetic programming on graphics processing units,'' in \emph{Parallel and Distributed Computational Intelligence}, SCI 269, Springer, 2010.
+
+\bibitem{fortin2012}
+F.A. Fortin, F.M. De Rainville, M.A. Gardner, M. Parizeau, and C. Gagn\'{e}, ``DEAP: Evolutionary algorithms made easy,'' \emph{JMLR}, vol.~13, 2012.
+
+\bibitem{w3c2023}
+W3C, ``WebGPU Specification,'' 2023. [Online]. Available: \url{https://www.w3.org/TR/webgpu/}
+
+\bibitem{tang2022}
+Y. Tang, Y. Tian, and D. Ha, ``EvoJAX: Hardware-accelerated neuroevolution,'' in \emph{Proc. GECCO Companion}, 2022.
+
+\bibitem{rastrigin1974}
+L.A. Rastrigin, \emph{Systems of Extremal Control}. Moscow: Nauka, 1974.
+
+\bibitem{sengupta2025}
+S. Sengupta, N. Wu, M. Varvello, K. Jana, and S. Chen, ``From WebGL to WebGPU: A reality check of browser-based GPU acceleration,'' in \emph{Proc. ACM Internet Measurement Conference}, 2025.
+
+\bibitem{merelo2015}
+J.J. Merelo-Guervos and P. Garcia-Sanchez, ``Modeling browser-based distributed evolutionary computation systems,'' \emph{arXiv:1503.06424}, 2015.
+
+\bibitem{duda2013a}
+J. Duda and W. Dlubacz, ``GPU acceleration for the web browser based evolutionary computing system,'' in \emph{Proc. IEEE CEC}, 2013.
+
+\bibitem{duda2013b}
+J. Duda and W. Dlubacz, ``Distributed evolutionary computing system based on web browsers with JavaScript,'' in \emph{PARA 2012}, LNCS 7782, 2013.
+
+\bibitem{luong2010}
+T.V. Luong, N. Melab, and E.-G. Talbi, ``GPU-based island model for evolutionary algorithms,'' in \emph{Proc. GECCO}, 2010.
+
+\bibitem{wu2025}
+Z. Wu, L. Wang, K. Sun, Z. Li, and R. Cheng, ``Enabling population-level parallelism in tree-based genetic programming for GPU acceleration,'' \emph{arXiv:2501.17168}, 2025.
+
+\bibitem{trujillo2022}
+L. Trujillo, J.M. Munoz Contreras, D.E. Hernandez, M. Castelli, and J.J. Tapia, ``GSGP-CUDA: A CUDA framework for geometric semantic genetic programming,'' \emph{SoftwareX}, vol.~18, 2022.
+
+\bibitem{hidaka2025}
+M. Hidaka and T. Harada, ``WgPy: GPU-accelerated NumPy-like array library for web browsers,'' \emph{arXiv:2503.00279}, 2025.
+
+\bibitem{hansen2001}
+N. Hansen and A. Ostermeier, ``Completely derandomized self-adaptation in evolution strategies,'' \emph{Evolutionary Computation}, vol.~9, no.~2, pp.~159--195, 2001.
+
+\end{thebibliography}
+
+\end{document}
