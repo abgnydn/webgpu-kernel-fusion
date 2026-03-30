@@ -22,7 +22,7 @@ For these sequential workloads, framework-based approaches face a fundamental bo
 
 We present a solution: **single-kernel fusion**, where the entire multi-step evaluation (all L timesteps for all N individuals) executes as a single GPU compute shader dispatch. The kernel maintains per-individual state in GPU memory and iterates through timesteps entirely on-device, eliminating all intermediate host synchronization.
 
-This approach is implemented in WGSL (WebGPU Shading Language), which provides two practical advantages: (1) zero installation — the compute shader runs in any WebGPU-capable browser, and (2) cross-vendor portability — the same shader executes on Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel D3D12 backends via the browser's translation layer.
+This approach is implemented in WGSL (WebGPU Shading Language [3]), which provides two practical advantages: (1) zero installation — the compute shader runs in any WebGPU-capable browser, and (2) cross-vendor portability — the same shader executes on Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel D3D12 backends via the browser's translation layer.
 
 **Contributions:**
 
@@ -86,7 +86,7 @@ The `nn_core.wgsl` kernel is injected into both training and inference compute p
 
 ### 4.1 Embarrassingly Parallel Workload (Rastrigin)
 
-**Table 1: Rastrigin Benchmark (POP=4,096, DIM=2,000)**
+**Table 1: Rastrigin [5] Benchmark (POP=4,096, DIM=2,000)**
 
 | System | Throughput (gen/s) | vs NumPy | N |
 |---|---|---|---|
@@ -297,7 +297,7 @@ On parallel workloads (Rastrigin), JAX GPU dominates at 1,164 gen/s — 6.8× fa
 
 [7] J.J. Merelo-Guervos and P. Garcia-Sanchez, "Modeling browser-based distributed evolutionary computation systems," *arXiv:1503.06424*, 2015.
 
-[8] J. Duda and W. Dlubacz, "GPU acceleration for the web browser based evolutionary computing system," in *Proc. IEEE CEC*, 2013.
+[8] J. Duda and W. Dlubacz, "GPU acceleration for the web browser based evolutionary computing system," in *Proc. ICSTCC*, 2013.
 
 [9] J. Duda and W. Dlubacz, "Distributed evolutionary computing system based on web browsers with JavaScript," in *PARA 2012*, LNCS 7782, Springer, 2013.
 

@@ -40,7 +40,7 @@ For these sequential workloads, framework-based approaches face a fundamental bo
 
 We present a solution: \textbf{single-kernel fusion}, where the entire multi-step evaluation (all $L$ timesteps for all $N$ individuals) executes as a single GPU compute shader dispatch. The kernel maintains per-individual state in GPU memory and iterates through timesteps entirely on-device, eliminating all intermediate host synchronization.
 
-This approach is implemented in WGSL (WebGPU Shading Language), providing: (1)~zero installation --- the compute shader runs in any WebGPU-capable browser, and (2)~cross-vendor portability --- the same shader executes on Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel D3D12 backends.
+This approach is implemented in WGSL (WebGPU Shading Language~\cite{w3c2023}), providing: (1)~zero installation --- the compute shader runs in any WebGPU-capable browser, and (2)~cross-vendor portability --- the same shader executes on Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel D3D12 backends.
 
 \textbf{Contributions:}
 \begin{itemize}
@@ -81,7 +81,7 @@ WebGPU throughput: automated Puppeteer benchmarks ($N = 10$ runs, 20s warmup). P
 \subsection{Embarrassingly Parallel Workload (Rastrigin)}
 
 \begin{table}[h]
-\caption{Rastrigin Benchmark (POP=4,096, DIM=2,000)}
+\caption{Rastrigin~\cite{rastrigin1974} Benchmark (POP=4,096, DIM=2,000)}
 \label{tab:rastrigin}
 \adjustbox{max width=\columnwidth}{\small
 \begin{tabular}{lrrr}
@@ -293,7 +293,7 @@ S. Sengupta, N. Wu, M. Varvello, K. Jana, and S. Chen, ``From WebGL to WebGPU: A
 J.J. Merelo-Guervos and P. Garcia-Sanchez, ``Modeling browser-based distributed evolutionary computation systems,'' \emph{arXiv:1503.06424}, 2015.
 
 \bibitem{duda2013a}
-J. Duda and W. Dlubacz, ``GPU acceleration for the web browser based evolutionary computing system,'' in \emph{Proc. IEEE CEC}, 2013.
+J. Duda and W. Dlubacz, ``GPU acceleration for the web browser based evolutionary computing system,'' in \emph{Proc. ICSTCC}, 2013.
 
 \bibitem{duda2013b}
 J. Duda and W. Dlubacz, ``Distributed evolutionary computing system based on web browsers with JavaScript,'' in \emph{PARA 2012}, LNCS 7782, 2013.
