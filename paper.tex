@@ -268,6 +268,10 @@ Hand-fused compute shaders outperform all tested alternatives on sequential fitn
 On parallel workloads (Rastrigin), JAX GPU dominates at 1,164~gen/s --- 6.8$\times$ faster than WebGPU --- confirming the advantage is specific to sequential dependency chains. A native Metal baseline quantifies Chrome's browser overhead at 1.92$\times$. WebGPU makes kernel fusion accessible with zero installation across Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel DirectX backends.
 
 %% ═══════════════════════════════════════════════════════════
+\section*{Acknowledgments}
+
+Drafting assistance was provided by Claude (Anthropic). All experimental results, benchmarks, code, and verification were performed by the author.
+
 \bibliographystyle{ACM-Reference-Format}
 \begin{thebibliography}{14}
 
