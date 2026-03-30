@@ -269,7 +269,7 @@ CartPole-v1 solved in **76 ± 46 ms** (N=30, 29/30 = 97% solve rate). **Caveat:*
 - **GPU backends:** Apple Metal (M2 Pro), NVIDIA CUDA (Tesla T4)
 - **Benchmarks:** `npm run bench` (Puppeteer-based)
 - **Python baselines:** `pip install -r benchmarks/requirements.txt`
-- **Code:** https://github.com/abgnydn/swarm-paper-1
+- **Code:** https://github.com/abgnydn/webgpu-kernel-fusion
 
 ---
 
