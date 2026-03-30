@@ -12,10 +12,12 @@ Fusing sequential fitness evaluations into single GPU compute shader dispatches 
 
 The advantage is specific to **sequential workloads** and grows on discrete NVIDIA hardware where per-step dispatch overhead is higher.
 
-## Paper
+## Links
 
-- **Markdown:** [PAPER.md](PAPER.md)
-- **LaTeX:** [paper.tex](paper.tex)
+- **Run the benchmarks yourself:** [swarm-bench.vercel.app](https://swarm-bench.vercel.app)
+- **Why this matters (plain language):** [swarm-bench.vercel.app/why](https://swarm-bench.vercel.app/why)
+- **Paper (Markdown):** [PAPER.md](PAPER.md)
+- **Paper (LaTeX):** [paper.tex](paper.tex)
 - **arXiv:** coming soon
 
 ## Reproduce Every Result
