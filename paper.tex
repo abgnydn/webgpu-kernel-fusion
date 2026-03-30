@@ -101,7 +101,7 @@ JAX jit+vmap (CUDA, T4) & 1,163.9 $\pm$ 168.2 & 298$\times$ & 10 \\
 
 \textbf{JAX GPU dominates} at 1,164~gen/s --- 6.8$\times$ faster than WebGPU. This is expected: XLA compilation on NVIDIA hardware represents the ceiling for parallel workloads. WebGPU achieves 1.06$\times$ parity with PyTorch MPS.
 
-\textbf{Native Metal baseline.} The identical WGSL shader via wgpu-native (Rust) achieves 326.5~gen/s --- \textbf{1.92$\times$ faster than WebGPU in Chrome}, quantifying browser overhead at 48\%. Notably, PyTorch MPS (160.5) is slower than WebGPU (170.3) despite being native.
+\textbf{Native Metal baseline.} The identical WGSL shader via wgpu-native (Rust) achieves 326.5~gen/s --- \textbf{1.92$\times$ faster than WebGPU in Chrome}, quantifying browser overhead at 48\%. PyTorch MPS (160.5) is slower than WebGPU (170.3) despite being native.
 
 \subsection{Sequential Workload: Financial Simulation}
 
