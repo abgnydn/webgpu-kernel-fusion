@@ -65,7 +65,20 @@ benchmarks/
   jax_baseline.py           # JAX CPU/GPU
   *_variance.py             # N=10 variance scripts
   requirements.txt
+tests/
+  paper_arithmetic.test.js  # Verifies every derived number in the paper
 ```
+
+## Verify Paper Arithmetic
+
+Every ratio, percentage, and comparison in the paper is tested against the raw table data:
+
+```bash
+node tests/paper_arithmetic.test.js
+# 55 checks, 0 failures
+```
+
+This catches stale numbers, copy-paste errors, and miscalculations. If you change any table value, run this test to verify all derived claims still hold.
 
 ## Hardware
 
