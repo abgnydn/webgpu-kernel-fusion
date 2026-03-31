@@ -224,6 +224,44 @@ PyTorch (MPS, M2 Pro) & 18.7 $\pm$ 0.6 & --- & 10 \\
 
 Third standard Gym environment. The 67$\times$ speedup at $L=200$ is consistent with the pattern.
 
+\subsection{N-Body Simulation}
+
+\begin{table}[h]
+\caption{N-Body (512 bodies, 200 timesteps, $O(N^2)$ force, sequential)}
+\label{tab:nbody}
+\adjustbox{max width=\columnwidth}{\small
+\begin{tabular}{lrrr}
+\toprule
+System & gen/s & vs MPS & $N$ \\
+\midrule
+PyTorch (CUDA, T4) & 15.9 $\pm$ 2.3 & --- & 10 \\
+PyTorch (MPS, M2 Pro) & 30.5 $\pm$ 0.2 & --- & 10 \\
+\textbf{WebGPU (Chrome, M2 Pro)} & \textbf{84.0 $\pm$ 0.2} & \textbf{2.8$\times$} & 10 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+N-Body is compute-bound ($O(N^2)$ force per step) rather than dispatch-bound, yielding a smaller 2.8$\times$ speedup. This confirms the fusion advantage scales with dispatch overhead fraction, not raw compute.
+
+\subsection{Monte Carlo Pi (Parallel Baseline)}
+
+\begin{table}[h]
+\caption{Monte Carlo Pi (4,096 workers $\times$ 100K samples, parallel)}
+\label{tab:montecarlo}
+\adjustbox{max width=\columnwidth}{\small
+\begin{tabular}{lrrr}
+\toprule
+System & gen/s & vs MPS & $N$ \\
+\midrule
+PyTorch (MPS, M2 Pro) & 7.8 $\pm$ 0.4 & --- & 10 \\
+PyTorch (CUDA, T4) & 11.5 $\pm$ 0.0 & --- & 10 \\
+\textbf{WebGPU (Chrome, M2 Pro)} & \textbf{115.9 $\pm$ 0.6} & \textbf{14.9$\times$} & 10 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+On this embarrassingly parallel workload, WebGPU achieves 14.9$\times$ over PyTorch MPS and 10.1$\times$ over PyTorch CUDA --- larger than the Rastrigin parallel gap (1.06$\times$). The difference is that Monte Carlo is memory-bound (409M random number generations), where WebGPU's shader-native RNG avoids PyTorch's \texttt{torch.rand} overhead.
+
 \subsection{CartPole-v1 Validation}
 
 CartPole-v1 solved in 76 $\pm$ 46 ms ($N = 30$, 97\% solve rate). \textbf{Caveat:} with 4,096 parallel rollouts, the system solves on generation 0 or 1, validating random search at scale rather than the evolutionary algorithm.
