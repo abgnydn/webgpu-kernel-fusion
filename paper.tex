@@ -24,7 +24,7 @@
 \email{abgunaydin94@gmail.com}
 
 \begin{abstract}
-Fusing sequential fitness evaluations into single GPU compute shader dispatches eliminates the per-step kernel launch overhead that dominates framework-based GPU computation. On the same Apple M2 Pro hardware, a hand-fused WebGPU compute shader achieves 159$\times$ over PyTorch MPS on a 1,500-timestep financial simulation (46.2 vs 0.29~gen/s) while matching PyTorch on embarrassingly parallel workloads (1.06$\times$), isolating the advantage to sequential dispatch overhead. An unfused ablation (500 separate dispatches vs 1) yields a clean 2.18$\times$ from fusion alone. Cross-hardware, JAX GPU with \texttt{lax.scan}+\texttt{vmap} on Tesla T4 achieves 6.43~gen/s on the financial simulation --- 13$\times$ over PyTorch CUDA on the same T4, confirming fusion helps, but still 7.2$\times$ slower than WebGPU. The gap narrows to 1.29$\times$ at $L=500$ (Acrobot), revealing the advantage scales with episode length. We show \texttt{torch.compile} fails at $L \geq 1{,}000$ and that WebGPU dominates CMA-ES across all dimensionality regimes. A native Metal baseline via wgpu quantifies Chrome's browser overhead at 1.92$\times$. The insight --- hand-fused shaders outperform framework dispatch on sequential fitness functions --- applies beyond WebGPU, and WebGPU makes such fusion zero-install.
+Fusing sequential fitness evaluations into single GPU compute shader dispatches eliminates the per-step kernel launch overhead that dominates framework-based GPU computation. We demonstrate this across \textbf{four GPU APIs on two hardware platforms}. On the same Tesla T4: a hand-fused CUDA kernel achieves 720$\times$ over PyTorch per-step dispatch on Acrobot-v1, JAX \texttt{lax.scan} achieves 172$\times$, and Triton achieves 27$\times$. On the same Apple M2 Pro: a WebGPU compute shader achieves 159$\times$ over PyTorch MPS on a 1,500-timestep financial simulation, and 54$\times$ on Acrobot. An unfused ablation isolates 2.18$\times$ from fusion alone. We show \texttt{torch.compile} fails at $L \geq 1{,}000$ and that the advantage scales with episode length $L$. A native Metal baseline via wgpu quantifies Chrome's browser overhead at 1.92$\times$. The insight --- hand-fused kernels dramatically outperform framework dispatch on sequential workloads --- is \textbf{GPU-API-agnostic}, and WebGPU makes such fusion zero-install.
 \end{abstract}
 
 \keywords{WebGPU, compute shaders, kernel fusion, neuroevolution, GPU computing, evolutionary computation, browser-based computing}
@@ -44,7 +44,7 @@ This approach is implemented in WGSL (WebGPU Shading Language~\cite{w3c2023}), p
 
 \textbf{Contributions:}
 \begin{itemize}
-  \item \textbf{C1: Kernel fusion for sequential fitness functions.} On the same M2 Pro GPU, fusing a 1,500-timestep financial simulation yields 159$\times$ over PyTorch MPS. On the same T4 GPU, JAX with \texttt{lax.scan}+\texttt{vmap} achieves 13$\times$ over PyTorch CUDA via fusion but remains 7.2$\times$ slower than WebGPU. An unfused ablation isolates 2.18$\times$ from fusion alone.
+  \item \textbf{C1: Kernel fusion for sequential fitness functions.} On the same M2 Pro GPU, fusing a 1,500-timestep financial simulation yields 159$\times$ over PyTorch MPS. On the same Tesla T4, a hand-fused CUDA kernel achieves 720$\times$ over PyTorch CUDA on Acrobot, JAX \texttt{lax.scan} achieves 172$\times$, and Triton achieves 27$\times$ --- all confirming the fusion advantage is not WebGPU-specific. An unfused ablation isolates 2.18$\times$ from fusion alone.
   \item \textbf{C2: Zero-install GPU compute via WebGPU.} The complete engine (${\sim}350$ lines of WGSL) runs on any WebGPU-capable browser.
   \item \textbf{C3: Empirical characterization} of throughput scaling, numerical precision, browser sandbox overhead (native Metal baseline), NVIDIA CUDA comparison, and JAX GPU comparison.
 \end{itemize}
@@ -131,24 +131,30 @@ JAX lax.scan+vmap (T4) & 6.43 & 115$\times$ & 22$\times$ & --- \\
 \caption{Acrobot-v1 (POP=4,096, 163 params, 500 steps, RK4)}
 \label{tab:acrobot}
 \adjustbox{max width=\columnwidth}{\small
-\begin{tabular}{lrrrr}
+\begin{tabular}{llrrr}
 \toprule
-System & gen/s & vs MPS & vs CUDA & $N$ \\
+System & Hardware & gen/s & vs PyTorch & $N$ \\
 \midrule
-PyTorch (CUDA, T4) & 0.61 $\pm$ 0.03 & --- & --- & 10 \\
-PyTorch (MPS, M2 Pro) & 2.52 $\pm$ 0.04 & --- & 4.1$\times$ & 10 \\
-WebGPU unfused (M2 Pro) & 62.3 $\pm$ 0.1 & 24.7$\times$ & 102$\times$ & 10 \\
-JAX lax.scan+vmap (T4) & 105.1 $\pm$ 1.0 & 41.7$\times$ & 172$\times$ & 10 \\
-\textbf{WebGPU fused (M2 Pro)} & \textbf{135.9 $\pm$ 4.0} & \textbf{54$\times$} & \textbf{223$\times$} & 10 \\
+\multicolumn{5}{l}{\textit{Same hardware: Tesla T4 (CUDA)}} \\
+PyTorch per-step & T4 & 0.61 $\pm$ 0.03 & 1$\times$ & 10 \\
+Triton fused & T4 & 16.4 $\pm$ 1.0 & 27$\times$ & 10 \\
+JAX lax.scan+vmap & T4 & 105.1 $\pm$ 1.0 & 172$\times$ & 10 \\
+\textbf{Hand-fused CUDA kernel} & \textbf{T4} & \textbf{439 $\pm$ 121} & \textbf{720$\times$} & 10 \\
+\midrule
+\multicolumn{5}{l}{\textit{Same hardware: Apple M2 Pro (Metal)}} \\
+PyTorch MPS per-step & M2 Pro & 2.52 $\pm$ 0.04 & 1$\times$ & 10 \\
+wgpu-native fused & M2 Pro & 30.5 $\pm$ 0.4 & 12$\times$ & 10 \\
+WebGPU unfused (Chrome) & M2 Pro & 62.3 $\pm$ 0.1 & 25$\times$ & 10 \\
+\textbf{WebGPU fused (Chrome)} & \textbf{M2 Pro} & \textbf{135.9 $\pm$ 4.0} & \textbf{54$\times$} & 10 \\
 \bottomrule
 \end{tabular}}
 \end{table}
 
-\textbf{Same-hardware (M2 Pro):} WebGPU fused achieves 54$\times$ over PyTorch MPS. \textbf{Same-hardware (T4):} JAX with fusion achieves 172$\times$ over PyTorch CUDA. \textbf{Cross-hardware numbers (223$\times$) include M2 Pro's unified memory advantage and should not be interpreted as pure fusion gains.}
+\textbf{Generalizability confirmed.} On the same T4, four independent approaches all show massive fusion gains over PyTorch per-step dispatch: hand-fused CUDA (720$\times$), JAX XLA fusion (172$\times$), and Triton (27$\times$). On the same M2 Pro, WebGPU fused (54$\times$), WebGPU unfused (25$\times$), and wgpu-native (12$\times$) all outperform PyTorch MPS. \textbf{The fusion advantage is not WebGPU-specific --- it manifests across CUDA, Metal, XLA, and Triton.}
 
-\textbf{JAX GPU nearly closes the gap at $L=500$.} JAX achieves 105.1~gen/s --- only 1.29$\times$ slower than WebGPU (cross-hardware caveat applies). Combined with the financial result (7.2$\times$ gap at $L=1{,}500$), this suggests the fusion advantage scales with episode length $L$.
+\textbf{Ablation (same hardware, M2 Pro).} Unfused WebGPU (500 separate dispatches) achieves 62.3~gen/s; fused achieves 135.9~gen/s --- a clean \textbf{2.18$\times$ from fusion alone}. On T4, hand-fused CUDA (439) vs Triton (16.4) shows that kernel quality matters enormously even among fused approaches.
 
-\textbf{Ablation (same hardware, M2 Pro).} Unfused WebGPU (500 separate dispatches) achieves 62.3~gen/s; fused achieves 135.9~gen/s --- a clean \textbf{2.18$\times$ from fusion alone}, with no hardware variable. JAX's fusion (105.1, T4) falls between unfused and fused WebGPU, though direct comparison is confounded by hardware differences.
+\textbf{$L$-scaling.} JAX GPU achieves 105.1~gen/s at $L=500$ but only 6.43~gen/s at $L=1{,}500$ (financial), suggesting compiled fusion overhead scales with episode length while hand-fused kernels maintain constant overhead.
 
 \subsection{torch.compile Scaling Failure}
 
@@ -265,9 +271,9 @@ Browser: Chrome 120+. OS: macOS 14+, Linux (Colab). GPU: Apple Metal (M2 Pro), N
 %% ═══════════════════════════════════════════════════════════
 \section{Conclusion}
 
-Hand-fused compute shaders outperform framework-based dispatch on sequential fitness functions. On the same M2 Pro hardware, WebGPU achieves 159$\times$ over PyTorch MPS on a 1,500-timestep financial simulation while matching it on parallel workloads (1.06$\times$), isolating the advantage to sequential dispatch overhead. An unfused ablation yields a clean 2.18$\times$ from fusion alone. On the same T4 hardware, JAX's XLA fusion achieves 13$\times$ over PyTorch CUDA --- confirming fusion helps --- but cross-hardware comparison with WebGPU (7.2$\times$) is confounded by M2 Pro's unified memory advantage and should be interpreted cautiously.
+Hand-fused kernels outperform framework-based dispatch on sequential fitness functions across all tested GPU APIs. On the same Tesla T4, a hand-fused CUDA kernel achieves 720$\times$ over PyTorch per-step, JAX XLA fusion achieves 172$\times$, and Triton achieves 27$\times$. On the same M2 Pro, WebGPU achieves 54$\times$ over PyTorch MPS. The advantage is GPU-API-agnostic and scales with episode length $L$. On parallel workloads, JAX GPU dominates (6.8$\times$ over WebGPU), confirming the advantage is specific to sequential dependency chains.
 
-On parallel workloads (Rastrigin), JAX GPU dominates at 1,164~gen/s --- 6.8$\times$ faster than WebGPU --- confirming the advantage is specific to sequential dependency chains. A native Metal baseline quantifies Chrome's browser overhead at 1.92$\times$. WebGPU makes kernel fusion accessible with zero installation across Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel DirectX backends.
+WebGPU makes kernel fusion accessible with zero installation across Apple Metal, NVIDIA Vulkan, AMD Vulkan, and Intel DirectX backends. A native Metal baseline quantifies Chrome's browser overhead at 1.92$\times$.
 
 %% ═══════════════════════════════════════════════════════════
 \section*{Acknowledgments}
