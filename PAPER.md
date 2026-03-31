@@ -236,7 +236,31 @@ At 8 tabs, total throughput reaches 6.4× with 80% per-tab efficiency.
 
 MountainCar-v0 (standard Gym benchmark, 200 timesteps, 2D state) adds a third standard RL environment alongside CartPole and Acrobot. The 67× speedup at L=200 is consistent with the pattern: shorter episodes yield smaller but still substantial fusion advantages.
 
-### 4.10 CartPole-v1 Validation
+### 4.10 N-Body Simulation
+
+**Table 12: N-Body (512 bodies, 200 timesteps, O(N²) force, sequential)**
+
+| System | gen/s | vs PyTorch MPS | N |
+|---|---|---|---|
+| PyTorch (CUDA, T4) | 15.9 ± 2.3 | — | 10 |
+| PyTorch (MPS, M2 Pro) | 30.5 ± 0.2 | — | 10 |
+| **WebGPU (Chrome, M2 Pro)** | **84.0 ± 0.2** | **2.8×** | 10 |
+
+N-Body is compute-bound (O(N²) force per step) rather than dispatch-bound, yielding a smaller 2.8× speedup. This confirms the fusion advantage scales with dispatch overhead fraction, not raw compute.
+
+### 4.11 Monte Carlo Pi (Parallel Baseline)
+
+**Table 13: Monte Carlo Pi (4,096 workers × 100K samples, parallel)**
+
+| System | gen/s | vs PyTorch MPS | N |
+|---|---|---|---|
+| PyTorch (MPS, M2 Pro) | 7.8 ± 0.4 | — | 10 |
+| PyTorch (CUDA, T4) | 11.5 ± 0.0 | — | 10 |
+| **WebGPU (Chrome, M2 Pro)** | **115.9 ± 0.6** | **14.9×** | 10 |
+
+On this embarrassingly parallel workload, WebGPU achieves 14.9× over PyTorch MPS and 10.1× over PyTorch CUDA. The difference is that Monte Carlo is memory-bound (409M random number generations), where WebGPU's shader-native RNG avoids PyTorch's `torch.rand` overhead.
+
+### 4.12 CartPole-v1 Validation
 
 CartPole-v1 solved in **76 ± 46 ms** (N=30, 29/30 = 97% solve rate). **Caveat:** With 4,096 parallel rollouts, the system solves on generation 0 or 1, validating random search at scale rather than the evolutionary algorithm.
 

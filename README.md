@@ -29,7 +29,15 @@ Fusing sequential fitness evaluations into single GPU compute shader dispatches 
 | PyTorch MPS | 0.29 | 1x |
 | **WebGPU fused (Chrome)** | **46.2** | **159x** |
 
-The advantage is specific to **sequential workloads**. On parallel workloads (Rastrigin), JAX GPU dominates (6.8x over WebGPU).
+**Additional benchmarks (M2 Pro):**
+
+| Benchmark | Type | WebGPU | PyTorch MPS | PyTorch CUDA T4 | vs MPS |
+|---|---|---|---|---|---|
+| N-Body (512 bodies, 200 steps) | Sequential | **84.0** | 30.5 | 15.9 | **2.8x** |
+| Monte Carlo Pi (4096 × 100K) | Parallel | **115.9** | 7.8 | 11.5 | **14.9x** |
+| MountainCar-v0 (200 steps) | Sequential | **1,258.8** | 18.7 | — | **67x** |
+
+The fusion advantage scales with dispatch overhead fraction. On compute-bound N-Body (O(N²) per step), gains are smaller (2.8x). On parallel Rastrigin, JAX GPU dominates (6.8x over WebGPU).
 
 ## Links
 
