@@ -37,7 +37,7 @@ The advantage is specific to **sequential workloads**. On parallel workloads (Ra
 - **Why this matters (plain language):** [gpubench.dev/why](https://gpubench.dev/why)
 - **Paper (Markdown):** [PAPER.md](PAPER.md)
 - **Paper (LaTeX):** [paper.tex](paper.tex)
-- **arXiv:** coming soon
+- **DOI:** [10.5281/zenodo.19342888](https://doi.org/10.5281/zenodo.19342888)
 
 ## Reproduce Every Result
 
@@ -110,7 +110,9 @@ This catches stale numbers, copy-paste errors, and miscalculations. If you chang
 @article{gunaydin2026kernelfusion,
   title={Single-Kernel Fusion for Sequential Fitness Evaluation via WebGPU Compute Shaders},
   author={Gunaydin, Ahmet Baris},
-  year={2026}
+  year={2026},
+  doi={10.5281/zenodo.19342888},
+  url={https://doi.org/10.5281/zenodo.19342888}
 }
 ```
 
