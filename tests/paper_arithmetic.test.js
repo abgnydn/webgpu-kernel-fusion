@@ -65,21 +65,6 @@ const TABLE3 = {
   webgpu_fused: 135.9,
 };
 
-const TABLE5 = {
-  webgpu_100_fitness: 0.0,
-  cmaes_100_fitness: 272,
-  webgpu_500_fitness: 0.0,
-  cmaes_500_fitness: 3804,
-  webgpu_2000_fitness: 15039,
-  cmaes_2000_fitness: 33843,
-  cmaes_pop4096_fitness: 35159,
-  webgpu_100_gens: 487750,
-  cmaes_100_gens: 1609,
-  webgpu_2000_gens: 340000,
-  cmaes_2000_gens: 374,
-  cmaes_pop4096_gens: 7,
-};
-
 const TABLE6 = {
   pop_512:   12948,
   pop_1024:  12791,
@@ -256,16 +241,7 @@ check("JAX GPU 1.29x slower than fused WebGPU (Acrobot)",
   TABLE3.webgpu_fused / TABLE3.jax_gpu, 1.29, 0.05);
 
 // ═══════════════════════════════════════════
-// TABLE 5 (CMA-ES) — claims
-// ═══════════════════════════════════════════
-
-console.log("\n=== TABLE 5: CMA-ES ===");
-
-check("CMA-ES DIM=2000: WebGPU ~2.2x better fitness",
-  TABLE5.cmaes_2000_fitness / TABLE5.webgpu_2000_fitness, 2.2, 0.10);
-
-// ═══════════════════════════════════════════
-// TABLE 6 (Population scaling) — <2.1% variation
+// TABLE 5 (Population scaling) — <2.1% variation
 // ═══════════════════════════════════════════
 
 console.log("\n=== TABLE 6: Population scaling ===");

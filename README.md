@@ -55,8 +55,7 @@ The advantage is specific to **sequential workloads**. On parallel workloads (Ra
 | Table 2 | `npm run bench` | Financial simulation (1,500 steps) |
 | Table 3 | `npm run bench:acrobot` | Acrobot-v1 (500 steps, RK4) |
 | Table 4 | `python3 benchmarks/pytorch_variance.py` | torch.compile scaling failure |
-| Table 5 | `npm run bench:cmaes` | CMA-ES comparison (N=30) |
-| Tables 6–8 | `npm run bench:comprehensive` | Population, benchmark suite, genome scaling |
+| Tables 5–7 | `npm run bench:comprehensive` | Population, benchmark suite, genome scaling |
 
 ### Python Baselines
 
@@ -64,7 +63,6 @@ The advantage is specific to **sequential workloads**. On parallel workloads (Ra
 python3 benchmarks/numpy_variance.py       # NumPy (N=10)
 python3 benchmarks/pytorch_variance.py     # PyTorch MPS (N=10)
 python3 benchmarks/jax_variance.py         # JAX CPU (N=10)
-python3 benchmarks/cmaes_benchmark.py      # CMA-ES (N=30)
 ```
 
 ## Repository Structure
@@ -79,7 +77,6 @@ src/
 benchmarks/
   bench.js                  # Puppeteer benchmark runner
   comprehensive_benchmarks.js
-  cmaes_benchmark.py        # CMA-ES (Python)
   pytorch_gpu_baseline.py   # PyTorch MPS/CUDA
   jax_baseline.py           # JAX CPU/GPU
   *_variance.py             # N=10 variance scripts

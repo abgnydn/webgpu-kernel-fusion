@@ -7,7 +7,6 @@
     "bench:rastrigin": "node benchmarks/bench.js --benchmark=rastrigin",
     "bench:scaling": "node benchmarks/dim_scaling_benchmark.js",
     "bench:comprehensive": "node benchmarks/comprehensive_benchmarks.js",
-    "bench:cmaes": "python3 benchmarks/cmaes_benchmark.py --budget=30 --runs=30",
     "bench:pytorch": "python3 benchmarks/pytorch_gpu_baseline.py",
     "bench:jax": "python3 benchmarks/jax_baseline.py",
     "bench:numpy": "python3 benchmarks/numpy_variance.py",
