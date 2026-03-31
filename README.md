@@ -1,28 +1,35 @@
 # Single-Kernel Fusion for Sequential Fitness Evaluation via WebGPU Compute Shaders
 
-Fusing sequential fitness evaluations into single GPU compute shader dispatches eliminates per-step kernel launch overhead. On the **same M2 Pro GPU**, a WebGPU shader achieves **159x over PyTorch MPS** on a 1,500-timestep financial simulation. An unfused ablation isolates **2.18x from fusion alone**. On the **same Tesla T4**, JAX with `lax.scan` achieves **13x over PyTorch CUDA** via XLA fusion. A native Metal baseline quantifies Chrome's browser overhead at **1.92x (48%)**.
+Fusing sequential fitness evaluations into single GPU compute shader dispatches eliminates per-step kernel launch overhead. We prove this across **4 GPU APIs on 2 hardware platforms** — the fusion advantage is **GPU-API-agnostic**.
 
 ## Key Results
 
-**Same-hardware comparisons (no cross-hardware confounding):**
+**Same hardware: Tesla T4 (Acrobot-v1, 500 steps, RK4)**
 
-| Comparison | Workload | Speedup | Hardware |
-|---|---|---|---|
-| WebGPU vs PyTorch MPS | Financial (1,500 steps) | **159x** | M2 Pro |
-| WebGPU vs PyTorch MPS | Acrobot (500 steps) | **54x** | M2 Pro |
-| WebGPU fused vs unfused | Acrobot (500 steps) | **2.18x** | M2 Pro |
-| JAX GPU vs PyTorch CUDA | Financial (1,500 steps) | **13x** | Tesla T4 |
-| wgpu-native vs WebGPU Chrome | Rastrigin (parallel) | **1.92x** | M2 Pro |
+| System | gen/s | vs PyTorch |
+|---|---|---|
+| PyTorch CUDA per-step | 0.61 | 1x |
+| Triton fused | 16.4 | **27x** |
+| JAX lax.scan+vmap | 105.1 | **172x** |
+| **Hand-fused CUDA kernel** | **439** | **720x** |
 
-**Cross-hardware (includes unified memory advantage — interpret with caveat):**
+**Same hardware: Apple M2 Pro (Acrobot-v1, 500 steps, RK4)**
 
-| Workload | WebGPU (M2 Pro) | PyTorch CUDA (T4) | JAX GPU (T4) |
-|---|---|---|---|
-| Financial (1,500 steps) | **46.2 gen/s** | 0.49 gen/s | 6.43 gen/s |
-| Acrobot (500 steps, RK4) | **135.9 gen/s** | 0.61 gen/s | 105.1 gen/s |
-| Rastrigin (parallel) | 170.3 gen/s | 311.1 gen/s | **1,163.9 gen/s** |
+| System | gen/s | vs PyTorch |
+|---|---|---|
+| PyTorch MPS per-step | 2.52 | 1x |
+| wgpu-native fused (Metal) | 30.5 | **12x** |
+| WebGPU unfused (Chrome) | 62.3 | **25x** |
+| **WebGPU fused (Chrome)** | **135.9** | **54x** |
 
-The advantage is specific to **sequential workloads**. On parallel workloads, JAX GPU dominates (6.8x over WebGPU).
+**Same hardware: M2 Pro (Financial sim, 1,500 steps)**
+
+| System | gen/s | vs PyTorch |
+|---|---|---|
+| PyTorch MPS | 0.29 | 1x |
+| **WebGPU fused (Chrome)** | **46.2** | **159x** |
+
+The advantage is specific to **sequential workloads**. On parallel workloads (Rastrigin), JAX GPU dominates (6.8x over WebGPU).
 
 ## Links
 
