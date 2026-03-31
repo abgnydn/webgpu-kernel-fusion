@@ -40,8 +40,6 @@ This approach is implemented in WGSL (WebGPU Shading Language [3]), which provid
 
 **Browser-based evolutionary computation.** Duda & Dlubacz [9] demonstrated browser-based EC with JavaScript on CPU. Duda & Dlubacz [8] explored WebGL-based GPU acceleration, constrained by WebGL's lack of compute shaders. Merelo-Guervos and Garcia-Sanchez [7] modeled browser-based distributed EC systems. Our work differs by implementing the complete evolutionary loop in WGSL compute shaders with single-kernel fusion for sequential workloads.
 
-**CMA-ES.** Hansen & Ostermeier [14] provide the foundational work on CMA-ES, the gold standard for continuous optimization in moderate dimensions. Our comparison shows that throughput-driven brute force can dominate CMA-ES under fixed wall-clock budgets when sufficient GPU parallelism is available.
-
 ---
 
 ## 3. System Architecture
@@ -75,8 +73,6 @@ The `nn_core.wgsl` kernel is injected into both training and inference compute p
 ### 3.4 Experimental Methodology
 
 **Throughput benchmarks.** We benchmark against Python/NumPy (CPU), JAX with `jit` + `lax.scan` (CPU), and PyTorch (MPS and CUDA). WebGPU throughput was measured using automated Puppeteer benchmarks (N=10 runs, 20s warmup, 10 samples/run). Python baselines: N=10 runs, mean ± std.
-
-**CMA-ES comparison.** CMA-ES [14] with default population size at DIM=100, 500, 2,000 under 30-second wall-clock budgets (N=30). Population-matched control (POP=4,096) at DIM=2,000.
 
 **Hardware.** Primary: Apple M2 Pro (19-core GPU, 16 GB unified memory), Chrome 123, macOS 14. NVIDIA: Tesla T4 (16 GB, Google Colab), PyTorch 2.10.0+cu128, CUDA 12.8.
 
@@ -161,29 +157,11 @@ WebGPU executes the **entire 1,500-step simulation as a single compute shader di
 
 `torch.compile` (Inductor backend) fails at L=1,000 (RecursionError) and L=5,000 (OOM). The Inductor backend unrolls the full loop into a single computation graph, scaling super-linearly in memory.
 
-### 4.5 CMA-ES Comparison
-
-**Table 5: WebGPU vs CMA-ES (30s wall-clock budget, N=30)**
-
-| System | DIM | Best Fitness (mean ± std) | Gen/s | Total Gens | N |
-|---|---|---|---|---|---|
-| **WebGPU** | **100** | **0.0 ± 0.0** | **16,257** | **487,750** | 30 |
-| CMA-ES (default pop) | 100 | 272 ± 39 | 524 | 1,609 | 30 |
-| **WebGPU** | **500** | **0.0 ± 0.0** | **16,109** | **483,298** | 30 |
-| CMA-ES (default pop) | 500 | 3,804 ± 1,181 | 88 | 2,636 | 30 |
-| **WebGPU** | **2,000** | **~15,039** | **11,335** | **~340,000** | 30 |
-| CMA-ES (default pop) | 2,000 | 33,843 ± 198 | 12.4 | 374 | 30 |
-| CMA-ES (POP=4,096) | 2,000 | 35,159 ± 122 | 0.22 | 7 | 30 |
-
-Fitness values are Rastrigin values (lower = better, optimum = 0). WebGPU achieves the global optimum at DIM=100/500. At DIM=2,000, WebGPU achieves ~2.2× better fitness than CMA-ES.
-
-**Population-matched control.** CMA-ES with POP=4,096 manages only 7 generations in 30s (0.22 gen/s), achieving the worst fitness (35,159). CMA-ES's O(n²×pop) covariance update makes large-population operation non-viable.
-
-### 4.6 Numerical Precision (f32 vs f64)
+### 4.5 Numerical Precision (f32 vs f64)
 
 WebGPU supports only f32. Maximum absolute error in NN outputs: 1.97×10⁻⁷. Over 5,000 cumulative multiplications, maximum relative error: 9.17×10⁻⁶. Fitness rankings perfectly preserved: Spearman ρ=1.000 across 10,000 genomes.
 
-### 4.7 Scaling Characterization
+### 4.6 Scaling Characterization
 
 **Table 6: Population Scaling (Rastrigin, DIM=2,000)**
 
@@ -223,7 +201,7 @@ All five benchmarks within 8%, confirming compute-bound rather than fitness-func
 
 Throughput invariant across 40× genome size range (<2% variation).
 
-### 4.8 GPU Utilization and Thermal Profile
+### 4.7 GPU Utilization and Thermal Profile
 
 **Table 9: GPU Utilization (Rastrigin, POP=4,096)**
 
@@ -234,7 +212,7 @@ Throughput invariant across 40× genome size range (<2% variation).
 
 GPU reaches 79.7% utilization with no thermal throttling over 60s continuous operation (CV<5%).
 
-### 4.9 Multi-Tab GPU Contention
+### 4.8 Multi-Tab GPU Contention
 
 **Table 10: Multi-Tab GPU Sharing (Rastrigin, POP=4,096 per tab)**
 
@@ -247,7 +225,7 @@ GPU reaches 79.7% utilization with no thermal throttling over 60s continuous ope
 
 At 8 tabs, total throughput reaches 6.4× with 80% per-tab efficiency.
 
-### 4.10 MountainCar-v0
+### 4.9 MountainCar-v0
 
 **Table 11: MountainCar-v0 Benchmark (POP=4,096, 51 params, 200 timesteps)**
 
@@ -258,9 +236,9 @@ At 8 tabs, total throughput reaches 6.4× with 80% per-tab efficiency.
 
 MountainCar-v0 (standard Gym benchmark, 200 timesteps, 2D state) adds a third standard RL environment alongside CartPole and Acrobot. The 67× speedup at L=200 is consistent with the pattern: shorter episodes yield smaller but still substantial fusion advantages.
 
-### 4.11 CartPole-v1 Validation
+### 4.10 CartPole-v1 Validation
 
-CartPole-v1 solved in **76 ± 46 ms** (N=30, 29/30 = 97% solve rate). **Caveat:** This validates random search at scale — with 4,096 parallel rollouts, the system solves on generation 0 or 1. EvoJAX [7] reports solve times on the order of seconds on V100/TPU.
+CartPole-v1 solved in **76 ± 46 ms** (N=30, 29/30 = 97% solve rate). **Caveat:** With 4,096 parallel rollouts, the system solves on generation 0 or 1, validating random search at scale rather than the evolutionary algorithm.
 
 ---
 
@@ -321,4 +299,3 @@ WebGPU makes kernel fusion accessible with zero installation across Apple Metal,
 
 [13] M. Hidaka and T. Harada, "WgPy: GPU-accelerated NumPy-like array library for web browsers," *arXiv:2503.00279*, 2025.
 
-[14] N. Hansen and A. Ostermeier, "Completely derandomized self-adaptation in evolution strategies," *Evolutionary Computation*, vol. 9, no. 2, pp. 159–195, 2001.

@@ -58,8 +58,6 @@ This approach is implemented in WGSL (WebGPU Shading Language~\cite{w3c2023}), p
 
 \textbf{Browser-based EC.} Duda \& Dlubacz~\cite{duda2013b} demonstrated browser EC with JavaScript on CPU; they also explored WebGL acceleration~\cite{duda2013a}. Merelo-Guervos and Garcia-Sanchez~\cite{merelo2015} modeled distributed browser EC systems.
 
-\textbf{CMA-ES.} Hansen \& Ostermeier~\cite{hansen2001} provide the foundational work. We show throughput-driven brute force can dominate CMA-ES under fixed wall-clock budgets.
-
 %% ═══════════════════════════════════════════════════════════
 \section{System Architecture}
 
@@ -73,7 +71,7 @@ Each individual is evaluated over $L = 1{,}500$ timesteps of historical cryptocu
 
 \subsection{Experimental Methodology}
 
-WebGPU throughput: automated Puppeteer benchmarks ($N = 10$ runs, 20s warmup). Python baselines: $N = 10$ runs, mean $\pm$ std. CMA-ES~\cite{hansen2001}: default population, 30s budget, $N = 30$. Hardware: Apple M2 Pro (Chrome 123, macOS 14) and Tesla T4 (CUDA 12.8, Google Colab).
+WebGPU throughput: automated Puppeteer benchmarks ($N = 10$ runs, 20s warmup). Python baselines: $N = 10$ runs, mean $\pm$ std. Hardware: Apple M2 Pro (Chrome 123, macOS 14) and Tesla T4 (CUDA 12.8, Google Colab).
 
 %% ═══════════════════════════════════════════════════════════
 \section{Results}
@@ -175,29 +173,6 @@ Timesteps & Eager & Compiled & Compile time & Speedup \\
 \end{tabular}}
 \end{table}
 
-\subsection{CMA-ES Comparison}
-
-\begin{table}[h]
-\caption{WebGPU vs CMA-ES (30s budget, $N = 30$). Rastrigin values (lower = better, optimum = 0).}
-\label{tab:cmaes}
-\adjustbox{max width=\columnwidth}{\small
-\begin{tabular}{llrrrr}
-\toprule
-System & DIM & Fitness & gen/s & Gens & $N$ \\
-\midrule
-\textbf{WebGPU} & \textbf{100} & \textbf{0.0 $\pm$ 0.0} & \textbf{16,257} & \textbf{487,750} & 30 \\
-CMA-ES (default) & 100 & 272 $\pm$ 39 & 524 & 1,609 & 30 \\
-\textbf{WebGPU} & \textbf{500} & \textbf{0.0 $\pm$ 0.0} & \textbf{16,109} & \textbf{483,298} & 30 \\
-CMA-ES (default) & 500 & 3,804 $\pm$ 1,181 & 88 & 2,636 & 30 \\
-\textbf{WebGPU} & \textbf{2,000} & \textbf{${\sim}$15,039} & \textbf{11,335} & \textbf{${\sim}$340,000} & 30 \\
-CMA-ES (default) & 2,000 & 33,843 $\pm$ 198 & 12.4 & 374 & 30 \\
-CMA-ES (POP=4,096) & 2,000 & 35,159 $\pm$ 122 & 0.22 & 7 & 30 \\
-\bottomrule
-\end{tabular}}
-\end{table}
-
-WebGPU achieves the global optimum at DIM$\leq$500. CMA-ES with POP=4,096 manages only 7 generations in 30s --- its $O(n^2 \times \text{pop})$ covariance update makes large-population operation non-viable.
-
 \subsection{Numerical Precision (f32 vs f64)}
 
 Maximum absolute error in NN outputs: $1.97 \times 10^{-7}$. Fitness rankings perfectly preserved: Spearman $\rho = 1.000$ across 10,000 genomes.
@@ -251,7 +226,7 @@ Third standard Gym environment. The 67$\times$ speedup at $L=200$ is consistent 
 
 \subsection{CartPole-v1 Validation}
 
-CartPole-v1 solved in 76 $\pm$ 46 ms ($N = 30$, 97\% solve rate). \textbf{Caveat:} this validates random search at scale. EvoJAX~\cite{tang2022} reports solve times on order of seconds on V100/TPU.
+CartPole-v1 solved in 76 $\pm$ 46 ms ($N = 30$, 97\% solve rate). \textbf{Caveat:} with 4,096 parallel rollouts, the system solves on generation 0 or 1, validating random search at scale rather than the evolutionary algorithm.
 
 %% ═══════════════════════════════════════════════════════════
 \section{Limitations and Future Work}
@@ -281,7 +256,7 @@ WebGPU makes kernel fusion accessible with zero installation across Apple Metal,
 Drafting assistance was provided by Claude (Anthropic). All experimental results, benchmarks, code, and verification were performed by the author.
 
 \bibliographystyle{ACM-Reference-Format}
-\begin{thebibliography}{14}
+\begin{thebibliography}{13}
 
 \bibitem{langdon2010}
 W.B. Langdon, ``Large scale bioinformatics data mining with parallel genetic programming on graphics processing units,'' in \emph{Parallel and Distributed Computational Intelligence}, SCI 269, Springer, 2010.
@@ -321,9 +296,6 @@ L. Trujillo, J.M. Munoz Contreras, D.E. Hernandez, M. Castelli, and J.J. Tapia, 
 
 \bibitem{hidaka2025}
 M. Hidaka and T. Harada, ``WgPy: GPU-accelerated NumPy-like array library for web browsers,'' \emph{arXiv:2503.00279}, 2025.
-
-\bibitem{hansen2001}
-N. Hansen and A. Ostermeier, ``Completely derandomized self-adaptation in evolution strategies,'' \emph{Evolutionary Computation}, vol.~9, no.~2, pp.~159--195, 2001.
 
 \end{thebibliography}
 
