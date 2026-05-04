@@ -1,8 +1,9 @@
 {
   "name": "webgpu-kernel-fusion-benchmarks",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Benchmarks for 'Single-Kernel Fusion for Sequential Fitness Evaluation via WebGPU Compute Shaders'",
   "scripts": {
+    "test": "node tests/paper_arithmetic.test.js",
     "bench": "node benchmarks/bench.js",
     "bench:rastrigin": "node benchmarks/bench.js --benchmark=rastrigin",
     "bench:scaling": "node benchmarks/dim_scaling_benchmark.js",

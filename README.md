@@ -1,5 +1,10 @@
 # Single-Kernel Fusion for Sequential Fitness Evaluation via WebGPU Compute Shaders
 
+[![CI](https://github.com/abgnydn/webgpu-kernel-fusion/actions/workflows/ci.yml/badge.svg)](https://github.com/abgnydn/webgpu-kernel-fusion/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![Live](https://img.shields.io/badge/live-kernelfusion.dev-6ea8ff)](https://kernelfusion.dev)
+[![Paper arithmetic](https://img.shields.io/badge/paper%20arithmetic-54%20%E2%9C%93-82c98b)](./tests/paper_arithmetic.test.js)
+
 Fusing sequential fitness evaluations into single GPU compute shader dispatches eliminates per-step kernel launch overhead. We prove this across **4 GPU APIs on 2 hardware platforms** — the fusion advantage is **GPU-API-agnostic**.
 
 ## Key Results

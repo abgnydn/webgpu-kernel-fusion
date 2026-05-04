@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  paper-arithmetic:
+    name: paper arithmetic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Validates every derived number (ratio, percentage, comparison) in
+      # PAPER.md / README.md against the raw benchmark tables — catches
+      # copy-paste errors and stale numbers without needing GPU access.
+      - name: Verify paper arithmetic
+        run: node tests/paper_arithmetic.test.js
